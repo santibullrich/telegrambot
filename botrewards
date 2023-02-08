@@ -1,0 +1,37 @@
+import telebot
+import pandas as pd
+
+bot = telebot.TeleBot("YOUR_TELEGRAM_BOT_TOKEN")
+
+# read the excel file, if not exists, create a new one with the required columns
+try:
+    data = pd.read_excel("points.xlsx")
+except FileNotFoundError:
+    data = pd.DataFrame(columns=["telegram_handle", "total_points"])
+
+# handle the reward command
+@bot.message_handler(commands=["reward"])
+def reward_user(message):
+    # extract the telegram username and points from the message
+    parts = message.text.split()
+    username = parts[1][1:]
+    points = int(parts[2])
+
+    # check if the user exists in the dataframe
+    user = data[data["telegram_handle"] == username]
+    if user.empty:
+        # add the new user to the dataframe
+        new_user = pd.DataFrame([[username, points]], columns=["telegram_handle", "total_points"])
+        data = data.append(new_user, ignore_index=True)
+    else:
+        # update the total points for the existing user
+        user["total_points"] += points
+        data.update(user)
+
+    # save the updated dataframe to the excel file
+    data.to_excel("points.xlsx", index=False)
+
+    # send a confirmation message to the user
+    bot.reply_to(message, f"{points} points were added to @{username}")
+
+bot.polling()
